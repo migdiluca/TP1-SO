@@ -33,11 +33,12 @@ sem_t * sem;
 int fdHash[2*SLAVES]; // hash
 int fdFiles[2*SLAVES]; // archivos
 char * shmAddr; // sheared memory adress (buffer)
+pid_t childs[SLAVES];
 
 int main(int argc, const char * argv[]) {
-    pid_t childs[SLAVES];
+
     int filesAmount = argc - 1;
-    
+
     if (filesAmount == 0) {
         // error no hay archivos
     }
@@ -45,30 +46,15 @@ int main(int argc, const char * argv[]) {
     pipeSlaves(fdHash);
     pipeSlaves(fdFiles);
 
-    // genero esclavos
-    for (int i = 0; i < SLAVES; i++) {
-        pid_t pid = fork();
-        if (pid == 0) {
-            // cierro extremos del pipe que el hijo no va a utilizar
-            
-            close(fdFiles[2*i+1]); // escritura
-            close(fdHash[2*i]); // lectura
-            char * args[]= {}; //argumentos para el esclavo
-            execv("./Esclavo", args); // llamada al proceso esclavo
-        } else {
-            childs[i] = pid;
-            // cierro extremos del pipe que el padere no va a utilizar
-            close(fdFiles[2*i]); // lectura
-            close(fdHash[2*i+1]); // escritura
-        }
-    }
+    generateSlaves();
+
     // creamos memoria compratida
     int shmId = allocateSharedMemory(BUFFER_SIZE);
     if (shmId == -1) {
         perror("shmget");
         exit(1);
     }
-    
+
     // mapeamos memoria compartida
     shmAddr = (char *) mapSharedMemory(shmId);
     if (!shmAddr) {
@@ -142,6 +128,30 @@ void actionHandler(int signum, siginfo_t * info, void * context) {
 
 void writeDataToBuffer() {
 
+}
+
+void generateSlaves() {
+    for (int i = 0; i < SLAVES; i++) {
+        pid_t pid = fork();
+        if (pid == 0) {
+            // cierro extremos del pipe que el hijo no va a utilizar
+            dup2(fdFiles[2*i],STDIN_FILENO);
+            dup2(fdHash[2*i+1],STDOUT_FILENO);
+            close(fdFiles[2*i]); // lectura
+            close(fdHash[2*i]); // lectura
+            close(fdFiles[2*i+1]); // escritura
+            close(fdHash[2*i+1]); // escritura
+            char * args[]= {NULL};
+            execv("./Esclavo", args); // llamada al proceso esclavo
+        } else {
+            childs[i] = pid;
+            // cierro extremos del pipe que el padere no va a utilizar
+            close(fdFiles[2*i]); // lectura
+            close(fdHash[2*i]); // lectura
+            close(fdFiles[2*i+1]); // escritura
+            close(fdHash[2*i+1]); // escritura
+        }
+    }
 }
 
 void pipeSlaves(int * fd) {

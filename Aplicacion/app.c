@@ -104,7 +104,7 @@ int main(int argc, const char * argv[]) {
         if (select(fdHash[2*(SLAVES-1)+1], &readfds, NULL, NULL, NULL) > 0) { // hay informacion disponible en algun fd
             for (int i = 0; i < SLAVES; i++) {
                 if (FD_ISSET(fdHash[2*i], &readfds)) {
-                    // hay informacion en el fd la leo y se la paso a la vista
+                    // hay informacion en el fd la leo y se la paso a la vista >> IMPLEMENTAR
                     // le pasamos un archivo mas al esclavo
                     write(fdHash[2*i], argv[filesTransfered], strlen(argv[filesTransfered])+1); // +1 para que ponga el null
                     filesTransfered++;

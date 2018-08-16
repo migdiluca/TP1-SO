@@ -154,19 +154,15 @@ void generateSlaves() {
             // cierro extremos del pipe que el hijo no va a utilizar
             dup2(fdFiles[2*i],STDIN_FILENO);
             dup2(fdHash[2*i+1],STDOUT_FILENO);
-            close(fdFiles[2*i]); // lectura
             close(fdHash[2*i]); // lectura
             close(fdFiles[2*i+1]); // escritura
-            close(fdHash[2*i+1]); // escritura
             char * args[]= {NULL};
             execv("./Esclavo", args); // llamada al proceso esclavo
         } else {
             childs[i] = pid;
             // cierro extremos del pipe que el padere no va a utilizar
             close(fdFiles[2*i]); // lectura
-            close(fdHash[2*i]); // lectura
             close(fdFiles[2*i+1]); // escritura
-            close(fdHash[2*i+1]); // escritura
         }
     }
 }

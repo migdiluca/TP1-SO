@@ -94,10 +94,27 @@ int main(int argc, const char * argv[]) {
         write(fdHash[2*j], argv[i], strlen(argv[i])+1); // +1 para que ponga el null
         j = (j + 1) % SLAVES;
     }
+    int filesTransfered = initialDistribution;
+    fd_set readfds;
+    while (filesTransfered < filesAmount) { // modificar para que pare cuando se queda sin archivos para mandar a los esclavos
+        FD_ZERO(&readfds);
+        for (int i = 0; i < SLAVES; i++) {
+            FD_SET(fdHash[2*i], &readfds);
+        }
+        if (select(fdHash[2*(SLAVES-1)+1], &readfds, NULL, NULL, NULL) > 0) { // hay informacion disponible en algun fd
+            for (int i = 0; i < SLAVES; i++) {
+                if (FD_ISSET(fdHash[2*i], &readfds)) {
+                    // hay informacion en el fd la leo y se la paso a la vista
+                    // le pasamos un archivo mas al esclavo
+                    write(fdHash[2*i], argv[filesTransfered], strlen(argv[filesTransfered])+1); // +1 para que ponga el null
+                    filesTransfered++;
+                }
+            }
+        }
+    }
     
     // cerramos el semaforo
     sem_close(sem);
-
     return 0;
 }
 
@@ -157,9 +174,3 @@ void pipeSlaves(int * fd) {
 //    int        sa_flags;
 //    void       (*sa_sigaction)(int, siginfo_t *, void *);
 //};
-
-
-
-
-
-

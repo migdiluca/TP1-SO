@@ -83,7 +83,7 @@ int main(int argc, const char * argv[]) {
                 if (FD_ISSET(fdHash[2*i], &readfds)) {
                     // hay informacion en el fd la leo y se la paso a la vista
                     sem_wait(sem);
-                    writeDataToBuffer(fdHash[2*i], shmAddr);
+                    writeDataToBuffer(fdHash[2*i], shmAddr); // CHEQUEAR ESTO!! 
                     sem_post(sem);
                     // le pasamos un archivo mas al esclavo
                     write(fdHash[2*i], argv[filesTransfered], strlen(argv[filesTransfered])+1); // +1 para que ponga el null

@@ -22,11 +22,9 @@
 
 void * mapSharedMemory(int id);
 int allocateSharedMemory(int n);
-//void actionHandler (int signum);
-void actionHandler(int signo, siginfo_t *info, void *context);
-void writeDataToBuffer();
 void pipeSlaves(int * fd);
-
+void generateSlaves();
+void writeDataToBuffer(int fd, const void * buffer);
 
 const  char * semName = "semaforo";
 sem_t * sem;
@@ -67,15 +65,6 @@ int main(int argc, const char * argv[]) {
     // el semaforo se inicializa en 0
     sem = sem_open(semName, O_CREAT|O_EXCL , S_IRUSR| S_IWUSR , 0);
     
-    // set up de senales
-    struct sigaction action;
-    //action.sa_handler = &actionHandler;
-    sigemptyset(&action.sa_mask);
-    //action.sa_flags = 0;
-    action.sa_flags = SA_SIGINFO;
-    action.sa_sigaction = &actionHandler;
-    sigaction(SIGUSR1, &action, NULL); // mapeo senal de finalizacion de tarea de hash
-    
     int initialDistribution = filesAmount*0.4;
     int j = 0;
     for (int i = 1; i < initialDistribution; i++) {
@@ -92,7 +81,10 @@ int main(int argc, const char * argv[]) {
         if (select(fdHash[2*(SLAVES-1)]+1, &readfds, NULL, NULL, NULL) > 0) { // hay informacion disponible en algun fd
             for (int i = 0; i < SLAVES; i++) {
                 if (FD_ISSET(fdHash[2*i], &readfds)) {
-                    // hay informacion en el fd la leo y se la paso a la vista >> IMPLEMENTAR
+                    // hay informacion en el fd la leo y se la paso a la vista
+                    sem_wait(sem);
+                    writeDataToBuffer(fdHash[2*i], shmAddr);
+                    sem_post(sem);
                     // le pasamos un archivo mas al esclavo
                     write(fdHash[2*i], argv[filesTransfered], strlen(argv[filesTransfered])+1); // +1 para que ponga el null
                     filesTransfered++;
@@ -101,9 +93,15 @@ int main(int argc, const char * argv[]) {
         }
     }
     
-    // cerramos el semaforo
+    // cerramos el semaforo y lo borramos
     sem_close(sem);
+    sem_unlink(semName);
     return 0;
+}
+
+int allocateSharedMemory(int n) {
+    assert(n > 0);
+    return shmget(IPC_PRIVATE, n, IPC_CREAT | SHM_R | SHM_W); // averiguar que es IPC_PRIVATE
 }
 
 void * mapSharedMemory(int id) {
@@ -114,40 +112,6 @@ void * mapSharedMemory(int id) {
     return addr;
 }
 
-int allocateSharedMemory(int n) {
-    assert(n > 0);
-    return shmget(IPC_PRIVATE, n, IPC_CREAT | SHM_R | SHM_W); // averiguar que es IPC_PRIVATE
-}
-
-//void actionHandler (int signum) {
-//    switch (signum) {
-//        case SIGUSR1:
-//            sem_wait(sem);
-//            writeDataToBuffer();
-//            sem_post(sem);
-//            break;
-//        default:
-//            break;
-//    }
-//
-//}
-
-void actionHandler(int signum, siginfo_t * info, void * context) {
-    switch (signum) {
-        case SIGUSR1: // senal de que el escalvo termino de realizar su tarea
-            sem_wait(sem);
-            writeDataToBuffer();
-            // mandamos un archivo a procesar al esclavo con info->si_pid (pid del escalvo que finalizo)
-            sem_post(sem);
-            break;
-        default:
-            break;
-    }
-}
-
-void writeDataToBuffer() {
-
-}
 
 void generateSlaves() {
     for (int i = 0; i < SLAVES; i++) {
@@ -175,10 +139,57 @@ void pipeSlaves(int * fd) {
     }
 }
 
+void writeDataToBuffer(int fd, const void * buffer) {
+    int fdSize = sizeof(fd); // que onda con esto??
+    int bytesWritten = 0;
+    while (bytesWritten < fdSize) {
+        int bytesSend = write(fd, buffer, (fdSize-bytesWritten));
+        if (bytesSend > 0) {
+            bytesWritten += bytesSend;
+        }
+    }
+}
 
-//struct sigaction {
-//    void       (*sa_handler)(int);
-//    sigset_t   sa_mask;
-//    int        sa_flags;
-//    void       (*sa_sigaction)(int, siginfo_t *, void *);
-//};
+
+
+////struct sigaction {
+////    void       (*sa_handler)(int);
+////    sigset_t   sa_mask;
+////    int        sa_flags;
+////    void       (*sa_sigaction)(int, siginfo_t *, void *);
+////};
+//
+////void actionHandler (int signum) {
+////    switch (signum) {
+////        case SIGUSR1:
+////            sem_wait(sem);
+////            writeDataToBuffer();
+////            sem_post(sem);
+////            break;
+////        default:
+////            break;
+////    }
+////
+////}
+//
+//void actionHandler(int signum, siginfo_t * info, void * context) {
+//    switch (signum) {
+//        case SIGUSR1: // senal de que el escalvo termino de realizar su tarea
+//            sem_wait(sem);
+//            writeDataToBuffer();
+//            // mandamos un archivo a procesar al esclavo con info->si_pid (pid del escalvo que finalizo)
+//            sem_post(sem);
+//            break;
+//        default:
+//            break;
+//    }
+//}
+//
+//// set up de senales
+//struct sigaction action;
+////action.sa_handler = &actionHandler;
+//sigemptyset(&action.sa_mask);
+////action.sa_flags = 0;
+//action.sa_flags = SA_SIGINFO;
+//action.sa_sigaction = &actionHandler;
+//sigaction(SIGUSR1, &action, NULL); // mapeo senal de finalizacion de tarea de hash

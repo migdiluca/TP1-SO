@@ -69,10 +69,10 @@ int main(int argc, const char * argv[]) {
     int initialDistribution = filesAmount*0.4;
     int j = 0;
     for (int i = 1; i < initialDistribution; i++) {
-        write(fdHash[2*j], argv[i], strlen(argv[i])+1); // +1 para que ponga el null
+        write(fdFiles[2*j], argv[i], strlen(argv[i])+1); // +1 para que ponga el null
         j = (j + 1) % SLAVES;
     }
-    
+
     int filesTransfered = initialDistribution;
     fd_set readfds;
     while (filesTransfered < filesAmount) { // modificar para que pare cuando se queda sin archivos para mandar a los esclavos
@@ -85,7 +85,7 @@ int main(int argc, const char * argv[]) {
                 if (FD_ISSET(fdHash[2*i], &readfds)) {
                     // hay informacion en el fd la leo y se la paso a la vista
                     sem_wait(sem);
-                    writeDataToBuffer(fdHash[2*i], shmAddr); // CHEQUEAR ESTO!!
+                    writeDataToBuffer(shmAddr, fdHash[2*i]); // CHEQUEAR ESTO!!
                     sem_post(sem);
                     // le pasamos un archivo mas al esclavo
                     write(fdHash[2*i], argv[filesTransfered], strlen(argv[filesTransfered])+1); // +1 para que ponga el null
@@ -132,7 +132,7 @@ void generateSlaves() {
             childs[i] = pid;
             // cierro extremos del pipe que el padere no va a utilizar
             close(fdFiles[2*i]); // lectura
-            close(fdFiles[2*i+1]); // escritura
+            close(fdHash[2*i+1]); // escritura
         }
     }
 }

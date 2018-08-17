@@ -24,6 +24,7 @@ void * mapSharedMemory(int id);
 int allocateSharedMemory(int n);
 void pipeSlaves(int * fd);
 void generateSlaves();
+void killSlaves();
 void writeDataToBuffer(int fd, const void * buffer);
 
 const  char * semName = "semaforo";
@@ -71,6 +72,7 @@ int main(int argc, const char * argv[]) {
         write(fdHash[2*j], argv[i], strlen(argv[i])+1); // +1 para que ponga el null
         j = (j + 1) % SLAVES;
     }
+    
     int filesTransfered = initialDistribution;
     fd_set readfds;
     while (filesTransfered < filesAmount) { // modificar para que pare cuando se queda sin archivos para mandar a los esclavos
@@ -83,7 +85,7 @@ int main(int argc, const char * argv[]) {
                 if (FD_ISSET(fdHash[2*i], &readfds)) {
                     // hay informacion en el fd la leo y se la paso a la vista
                     sem_wait(sem);
-                    writeDataToBuffer(fdHash[2*i], shmAddr); // CHEQUEAR ESTO!! 
+                    writeDataToBuffer(fdHash[2*i], shmAddr); // CHEQUEAR ESTO!!
                     sem_post(sem);
                     // le pasamos un archivo mas al esclavo
                     write(fdHash[2*i], argv[filesTransfered], strlen(argv[filesTransfered])+1); // +1 para que ponga el null
@@ -92,6 +94,8 @@ int main(int argc, const char * argv[]) {
             }
         }
     }
+    
+    killSlaves();
     
     // cerramos el semaforo y lo borramos
     sem_close(sem);
@@ -150,6 +154,12 @@ void writeDataToBuffer(int fd, const void * buffer) {
     }
 }
 
+
+void killSlaves() {
+    for (int i = 0; i < SLAVES; i++) {
+        kill(childs[i], SIGKILL);
+    }
+}
 
 
 ////struct sigaction {

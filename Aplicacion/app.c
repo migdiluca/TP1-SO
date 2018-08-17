@@ -36,6 +36,8 @@ char * shmAddr; // sheared memory adress (buffer)
 pid_t childs[SLAVES];
 
 int main(int argc, const char * argv[]) {
+    
+    printf("%d", getpid()); // manda a salida estandard el pid del processo para que sea leido por la vista
 
     int filesAmount = argc - 1;
 

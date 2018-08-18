@@ -81,7 +81,7 @@ int main(int argc, const char * argv[]) {
     int dataReaded = 0;
     fd_set readfds;
     
-    while (dataReaded < filesAmount) { // modificar para que pare cuando se queda sin archivos para mandar a los esclavos
+    while (dataReaded < filesAmount) {
         FD_ZERO(&readfds);
         for (int i = 0; i < SLAVES; i++) {
             FD_SET(fdHash[2*i], &readfds);
@@ -142,14 +142,14 @@ void generateSlaves() {
         if (pid == 0) {
             dup2(fdFiles[2*i], STDIN_FILENO);
             dup2(fdHash[2*i+1], STDOUT_FILENO);
-            close(fdHash[2*i]); // lectura
-            close(fdFiles[2*i+1]); // escritura
-            execv("./Esclavo", args); // llamada al proceso esclavo
+            close(fdHash[2*i]);
+            close(fdFiles[2*i+1]);
+            execv("./Esclavo", args);
             exit(0);
         } else {
             childs[i] = pid;
-            close(fdFiles[2*i]); // lectura
-            close(fdHash[2*i+1]); // escritura
+            close(fdFiles[2*i]);
+            close(fdHash[2*i+1]);
         }
     }
 }
@@ -167,16 +167,16 @@ void killSlaves() {
 }
 
 
-void writeDataToBuffer(int fd, const void * buffer) {
-    int fdSize = sizeof(fd); // que onda con esto??
-    int bytesWritten = 0;
-    while (bytesWritten < fdSize) {
-        int bytesSend = write(fd, buffer, (fdSize-bytesWritten));
-        if (bytesSend > 0) {
-            bytesWritten += bytesSend;
-        }
-    }
-}
+//void writeDataToBuffer(int fd, const void * buffer) {
+//    int fdSize = sizeof(fd); // que onda con esto??
+//    int bytesWritten = 0;
+//    while (bytesWritten < fdSize) {
+//        int bytesSend = write(fd, buffer, (fdSize-bytesWritten));
+//        if (bytesSend > 0) {
+//            bytesWritten += bytesSend;
+//        }
+//    }
+//}
 
 ////struct sigaction {
 ////    void       (*sa_handler)(int);

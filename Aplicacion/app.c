@@ -39,7 +39,7 @@ int main(int argc, const char * argv[]) {
     printf("%d", getpid()); // manda a salida estandard el pid del processo para que sea leido por la vista
 
     int filesAmount = argc - 1;
-
+    
     if (filesAmount == 0) {
         printf("ERROR, NO FILES TO PROCESS\n");
         return 0;
@@ -67,7 +67,7 @@ int main(int argc, const char * argv[]) {
     // el semaforo se inicializa en 0
     sem = sem_open(semName, O_CREAT|O_EXCL , S_IRUSR| S_IWUSR , 0);
     
-    int initialDistribution = SLAVES;
+    int initialDistribution = SLAVES; // filesAmount*0.4
     int j = 0;
     for (int i = 1; i < initialDistribution; i++) {
         if (write(fdFiles[2*j+1], argv[i], strlen(argv[i])+1) == -1) { // +1 para que ponga el null

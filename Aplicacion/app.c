@@ -45,7 +45,7 @@ int main(int argc, const char * argv[]) {
     printf("%d", getpid()); // manda a salida estandard el pid del processo para que sea leido por la vista
 
     int filesAmount = argc - 1;
-
+    
     if (filesAmount == 0) {
         printf("ERROR, NO FILES TO PROCESS\n");
         return 0;
@@ -59,7 +59,7 @@ int main(int argc, const char * argv[]) {
     createSemaphore();
     setUpSharedMemory();
     
-    int initialDistribution = SLAVES;
+    int initialDistribution = SLAVES; // filesAmount*0.4
     int j = 0;
     for (int i = 1; i < initialDistribution; i++) {
         if (write(fdFiles[2*j+1], argv[i], strlen(argv[i])+1) == -1) { // +1 para que ponga el null
@@ -73,7 +73,7 @@ int main(int argc, const char * argv[]) {
     int dataReaded = 0;
     fd_set readfds;
     
-    while (dataReaded < filesAmount) { // modificar para que pare cuando se queda sin archivos para mandar a los esclavos
+    while (dataReaded < filesAmount) {
         FD_ZERO(&readfds);
         for (int i = 0; i < SLAVES; i++) {
             FD_SET(fdHash[2*i], &readfds);
@@ -148,14 +148,14 @@ void generateSlaves() {
         if (pid == 0) {
             dup2(fdFiles[2*i], STDIN_FILENO);
             dup2(fdHash[2*i+1], STDOUT_FILENO);
-            close(fdHash[2*i]); // lectura
-            close(fdFiles[2*i+1]); // escritura
-            execv("./Esclavo", args); // llamada al proceso esclavo
+            close(fdHash[2*i]);
+            close(fdFiles[2*i+1]);
+            execv("./Esclavo", args);
             exit(0);
         } else {
             childs[i] = pid;
-            close(fdFiles[2*i]); // lectura
-            close(fdHash[2*i+1]); // escritura
+            close(fdFiles[2*i]);
+            close(fdHash[2*i+1]);
         }
     }
 }
@@ -173,16 +173,16 @@ void killSlaves() {
 }
 
 
-void writeDataToBuffer(int fd, const void * buffer) {
-    int fdSize = sizeof(fd); // que onda con esto??
-    int bytesWritten = 0;
-    while (bytesWritten < fdSize) {
-        int bytesSend = write(fd, buffer, (fdSize-bytesWritten));
-        if (bytesSend > 0) {
-            bytesWritten += bytesSend;
-        }
-    }
-}
+//void writeDataToBuffer(int fd, const void * buffer) {
+//    int fdSize = sizeof(fd); // que onda con esto??
+//    int bytesWritten = 0;
+//    while (bytesWritten < fdSize) {
+//        int bytesSend = write(fd, buffer, (fdSize-bytesWritten));
+//        if (bytesSend > 0) {
+//            bytesWritten += bytesSend;
+//        }
+//    }
+//}
 
 ////struct sigaction {
 ////    void       (*sa_handler)(int);

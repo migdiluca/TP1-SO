@@ -17,8 +17,11 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <string.h>
+#include <fcntl.h>
 #define SLAVES 5
 #define BUFFER_SIZE 100
+
+#define SHMSIZE 1024
 
 void * mapSharedMemory(int id);
 int allocateSharedMemory(int n);
@@ -27,11 +30,14 @@ void generateSlaves();
 void killSlaves();
 void writeDataToBuffer(int fd, const void * buffer);
 
-const  char * semName = "semaforo";
+const char * shmName = "viewAndAppSharedMemory";
+const char * semName = "viewAndAppSemaphore";
+
 sem_t * sem;
+int shm_fd; // shared memory address (buffer)
+void * ptrshm; //shared memory pointer
 int fdHash[2*SLAVES]; // hash
 int fdFiles[2*SLAVES]; // archivos
-char * shmAddr; // sheared memory adress (buffer)
 pid_t childs[SLAVES];
 
 int main(int argc, const char * argv[]) {
@@ -48,24 +54,10 @@ int main(int argc, const char * argv[]) {
     pipeSlaves(fdHash);
     pipeSlaves(fdFiles);
 
+    shareMyPID();
     generateSlaves();
-
-    // creamos memoria compratida
-    int shmId = allocateSharedMemory(BUFFER_SIZE);
-    if (shmId == -1) {
-        perror("shmget");
-        exit(1);
-    }
-
-    // mapeamos memoria compartida
-    shmAddr = (char *) mapSharedMemory(shmId);
-    if (!shmAddr) {
-        perror("shmat");
-        exit(1);
-    }
-    
-    // el semaforo se inicializa en 0
-    sem = sem_open(semName, O_CREAT|O_EXCL , S_IRUSR| S_IWUSR , 0);
+    createSemaphore();
+    setUpSharedMemory();
     
     int initialDistribution = SLAVES;
     int j = 0;
@@ -111,29 +103,43 @@ int main(int argc, const char * argv[]) {
             }
         }
     }
-    
+
     killSlaves();
-    
     // cerramos el semaforo y lo borramos
-    sem_close(sem);
-    sem_unlink(semName);
-    // la vista tiene que borrar el semaforo
+    endSemaphore();
     return 0;
 }
 
-int allocateSharedMemory(int n) {
-    assert(n > 0);
-    return shmget(IPC_PRIVATE, n, IPC_CREAT | SHM_R | SHM_W); // averiguar que es IPC_PRIVATE
+void shareMyPID(){
+    char pid[21];
+    int myPID = (int) getpid();
+    int lenght = sprintf(pid, "%d", myPID);
+    char[lenght] = '\0';
+    write(STDOUT_FILENO, pid, lenght + 1);
 }
 
-void * mapSharedMemory(int id) {
-    void * addr;
-    assert(id != 0);
-    addr = shmat(id, NULL, 0);
-    // shmctl(id, IPC_RMID, NULL); NOSE QUE ES ESTO
-    return addr;
+void setUpSharedMemory() {
+    shm_fd = shm_open(shmName, O_CREAT | O_RDRW, 0666);
+    if(shm_fd == -1 || ftruncate(shm_fd, SHMSIZE) == -1) {//trunca el archivo al tamaño SHMSIZE
+        printf("Can't initialize shared memory");
+        exit(-1);
+    }
+    ptrshm = mmap(0, SHMSIZE, PROT_WRITE, MAP_SHARED, shm_fd, 0);
 }
 
+void createSemaphore() {
+    sem = sem_open("ViewAndAppSemaphore",O_CREAT,0644,1);
+    if(sem == SEM_FAILED) {
+        printf("Unable to create semaphore\n");
+        sem_unlink(SEM_NAME);
+        exit(-1);
+    }
+}
+
+void endSemaphore() {
+    sem_close(sem);
+    sem_unlink(SEM_NAME);
+}
 
 void generateSlaves() {
     char * args[]= {};

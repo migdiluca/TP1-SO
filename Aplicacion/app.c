@@ -105,7 +105,7 @@ int main(int argc, const char * argv[]) {
     }
 
     killSlaves();
-    // cerramos el semaforo y lo borramos
+    //cerramos el semaforo y lo borramos
     endSemaphore();
     return 0;
 }

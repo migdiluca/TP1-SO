@@ -18,6 +18,10 @@
 #include <sys/uio.h>
 #include <string.h>
 #include <fcntl.h>
+#include <sys/mman.h>
+#include <errno.h>
+#include <string.h>
+
 #define SLAVES 5
 #define BUFFER_SIZE 100
 
@@ -29,13 +33,17 @@ void pipeSlaves(int * fd);
 void generateSlaves();
 void killSlaves();
 void writeDataToBuffer(int fd, const void * buffer);
+void endSemaphore();
+void createSemaphore();
+void setUpSharedMemory();
+void shareMyPID();
 
 const char * shmName = "viewAndAppSharedMemory";
 const char * semName = "viewAndAppSemaphore";
 
 sem_t * sem;
 int shm_fd; // shared memory address (buffer)
-void * ptrshm; //shared memory pointer
+void * shmAddr; //shared memory pointer
 int fdHash[2*SLAVES]; // hash
 int fdFiles[2*SLAVES]; // archivos
 pid_t childs[SLAVES];
@@ -114,31 +122,31 @@ void shareMyPID(){
     char pid[21];
     int myPID = (int) getpid();
     int lenght = sprintf(pid, "%d", myPID);
-    char[lenght] = '\0';
+    pid[lenght] = '\0';
     write(STDOUT_FILENO, pid, lenght + 1);
 }
 
 void setUpSharedMemory() {
-    shm_fd = shm_open(shmName, O_CREAT | O_RDRW, 0666);
+    shm_fd = shm_open(shmName, O_CREAT | O_RDWR, 0666);
     if(shm_fd == -1 || ftruncate(shm_fd, SHMSIZE) == -1) {//trunca el archivo al tamaño SHMSIZE
         printf("Can't initialize shared memory");
         exit(-1);
     }
-    ptrshm = mmap(0, SHMSIZE, PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    shmAddr = mmap(0, SHMSIZE, PROT_WRITE, MAP_SHARED, shm_fd, 0);
 }
 
 void createSemaphore() {
     sem = sem_open("ViewAndAppSemaphore",O_CREAT,0644,1);
     if(sem == SEM_FAILED) {
         printf("Unable to create semaphore\n");
-        sem_unlink(SEM_NAME);
+        sem_unlink(semName);
         exit(-1);
     }
 }
 
 void endSemaphore() {
     sem_close(sem);
-    sem_unlink(SEM_NAME);
+    sem_unlink(semName);
 }
 
 void generateSlaves() {

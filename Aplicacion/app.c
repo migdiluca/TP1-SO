@@ -10,7 +10,6 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <dirent.h>
-#include <sys/shm.h>
 #include <assert.h>
 #include <semaphore.h>
 #include <signal.h>
@@ -20,9 +19,10 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <errno.h>
+#include <unistd.h>
 #include <string.h>
 
-#define SLAVES 5
+#define DEFAULTSLAVES 5
 #define BUFFER_SIZE 100
 
 #define SHMSIZE 1024
@@ -33,20 +33,26 @@ void pipeSlaves(int * fd);
 void generateSlaves();
 void killSlaves();
 void writeDataToBuffer(int fd, const void * buffer);
-void endSemaphore();
-void createSemaphore();
+void endSemaphores();
+void createSemaphores();
 void setUpSharedMemory();
 void shareMyPID();
+int getNumberOfCores();
+void initializeArrays();
+void freeArrays();
 
 const char * shmName = "viewAndAppSharedMemory";
-const char * semName = "viewAndAppSemaphore";
+const char * semViewName = "viewSemaphore";
+const char * semAppName = "appSemaphore";
 
-sem_t * sem;
+sem_t * semView;
+sem_t * semApp;
 int shm_fd; // shared memory address (buffer)
 void * shmAddr; //shared memory pointer
-int fdHash[2*SLAVES]; // hash
-int fdFiles[2*SLAVES]; // archivos
-pid_t childs[SLAVES];
+int * fdHash; // hash
+int * fdFiles; // archivos
+pid_t * childs;
+int numOfSlaves;
 
 int main(int argc, const char * argv[]) {
     int dim = 0;
@@ -58,23 +64,26 @@ int main(int argc, const char * argv[]) {
         printf("ERROR, NO FILES TO PROCESS\n");
         return 0;
     }
+
+    numOfSlaves = getNumberOfCores();
+    initializeArrays();
     
     pipeSlaves(fdHash);
     pipeSlaves(fdFiles);
 
-    shareMyPID();
     generateSlaves();
-    createSemaphore();
+    createSemaphores();
     setUpSharedMemory();
-    
-    int initialDistribution = SLAVES; // filesAmount*0.4
+    shareMyPID();
+
+    int initialDistribution = numOfSlaves; // filesAmount*0.4
     int j = 0;
     for (int i = 1; i < initialDistribution; i++) {
         if (write(fdFiles[2*j+1], argv[i], strlen(argv[i])+1) == -1) { // +1 para que ponga el null
             printf("Error: %s\n", strerror(errno));
             return 1;
         }
-        j = (j + 1) % SLAVES;
+        j = (j + 1) % numOfSlaves;
     }
     
     int filesTransfered = initialDistribution;
@@ -83,15 +92,15 @@ int main(int argc, const char * argv[]) {
     
     while (dataReaded < filesAmount) {
         FD_ZERO(&readfds);
-        for (int i = 0; i < SLAVES; i++) {
+        for (int i = 0; i < numOfSlaves; i++) {
             FD_SET(fdHash[2*i], &readfds);
         }
-        if (select(fdHash[2*(SLAVES-1)]+1, &readfds, NULL, NULL, NULL) > 0) { // hay informacion disponible en algun fd
-            for (int i = 0; i < SLAVES; i++) {
+        if (select(fdHash[2*(numOfSlaves-1)]+1, &readfds, NULL, NULL, NULL) > 0) { // hay informacion disponible en algun fd
+            for (int i = 0; i < numOfSlaves; i++) {
                 if (FD_ISSET(fdHash[2*i], &readfds)) {
-                    sem_wait(sem);
+                    sem_post(semView); //hay que ver esto
                     int bytesReaded = read(fdHash[2*i], shmAddr + dim, BUFFER_SIZE - dim);
-                    sem_post(sem);
+                    sem_wait(semApp); //hay que ver esto
                     if (bytesReaded == -1) {
                         printf("Error: %s\n", strerror(errno));
                         return 1;
@@ -114,7 +123,8 @@ int main(int argc, const char * argv[]) {
 
     killSlaves();
     //cerramos el semaforo y lo borramos
-    endSemaphore();
+    endSemaphores();
+    freeArrays();
     return 0;
 }
 
@@ -135,23 +145,27 @@ void setUpSharedMemory() {
     shmAddr = mmap(0, SHMSIZE, PROT_WRITE, MAP_SHARED, shm_fd, 0);
 }
 
-void createSemaphore() {
-    sem = sem_open(semName,O_CREAT,0644,1);
-    if(sem == SEM_FAILED) {
-        printf("Unable to create semaphore\n");
-        sem_unlink(semName);
+void createSemaphores() {
+    semView = sem_open(semViewName,O_CREAT,0644,0);
+    semApp = sem_open(semAppName,O_CREAT,0644,0);
+    if(semApp == SEM_FAILED || semView == SEM_FAILED) {
+        printf("Unable to create semaphores\n");
+        sem_unlink(semViewName);
+        sem_unlink(semAppName);
         exit(-1);
     }
 }
 
-void endSemaphore() {
-    sem_close(sem);
-    sem_unlink(semName);
+void endSemaphores() {
+    sem_close(semView);
+    sem_unlink(semViewName);
+    sem_close(semApp);
+    sem_unlink(semAppName);
 }
 
 void generateSlaves() {
     char * args[]= {};
-    for (int i = 0; i < SLAVES; i++) {
+    for (int i = 0; i < numOfSlaves; i++) {
         pid_t pid = fork();
         if (pid == 0) {
             dup2(fdFiles[2*i], STDIN_FILENO);
@@ -168,16 +182,36 @@ void generateSlaves() {
     }
 }
 
-void pipeSlaves(int fd[2*SLAVES]) {
-    for (int i = 0; i < SLAVES; i++) {
+void pipeSlaves(int fd[]) {
+    for (int i = 0; i < numOfSlaves; i++) {
         pipe(&fd[2*i]);
     }
 }
 
 void killSlaves() {
-    for (int i = 0; i < SLAVES; i++) {
+    for (int i = 0; i < numOfSlaves; i++) {
         kill(childs[i], SIGKILL);
     }
+}
+
+//Retorna numero de nucleos, o si no puede un default.
+int getNumberOfCores() {
+    #if defined(__linux__)
+        return sysconf(_SC_NPROCESSORS_ONLN);
+    #endif
+    return DEFAULTSLAVES;
+}
+
+void initializeArrays() {
+    fdHash = malloc(sizeof(int) * 2 * numOfSlaves);
+    fdFiles = malloc(sizeof(int) * 2 * numOfSlaves);
+    childs = malloc(sizeof(pid_t) * numOfSlaves);
+}
+
+void freeArrays() {
+    free(fdHash);
+    free(fdFiles);
+    free(childs);
 }
 
 

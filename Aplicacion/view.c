@@ -13,22 +13,22 @@
 
 #define SHMSIZE 1024
 
-const char * shmName = "viewAndAppSharedMemory";
-const char * semName = "viewAndAppSemaphore";
+const char * semViewName = "viewSemaphore";
+const char * semAppName = "appSemaphore";
 
+sem_t * semView;
+sem_t * semApp;
 int shm_fd;
 void * shmAddr;
-sem_t *sem;
 
-void endSemaphore();
+void endSemaphores();
 pid_t getApplicationPID();
 void setUpSharedMemory();
-void createSemaphore();
+void createSemaphores();
 
 int main() {
-    createSemaphore();
+    createSemaphores();
     setUpSharedMemory();
-
     pid_t appPID = getApplicationPID();
 
     int appIsRunning = 1;
@@ -55,21 +55,21 @@ int main() {
 
 // REVISAR
 pid_t getApplicationPID() {
-    char buff;
+    char * buff;
     int multiplier = 1;
     pid_t appPID = 0;
 
-    read(STDIN_FILENO, &buff, 1);
-    while(buff != '\0') {
-        appPID = (appPID * multiplier) + (buff - '0');
+    read(STDIN_FILENO, buff, 1);
+    while(*buff != '\0') {
+        appPID = (appPID * multiplier) + (*buff - '0');
         multiplier *= 10;
-        read(STDIN_FILENO, &buff, 1);
+        read(STDIN_FILENO, buff, 1);
     }
     return appPID;
 }
 
 void setUpSharedMemory() {
-    shm_fd = shm_open(shmName, O_RDONLY, 0666);
+    shm_fd = shm_open(shmName, O_CREAT | O_RDONLY, 0666);
     if(shm_fd == -1) {
         printf("Can't initialize shared memory");
         exit(-1);
@@ -77,16 +77,20 @@ void setUpSharedMemory() {
     shmAddr = mmap(0, SHMSIZE, PROT_READ, MAP_SHARED, shm_fd, 0);
 }
 
-void createSemaphore() {
-    sem = sem_open(semName,O_CREAT,0644,1);
-    if(sem == SEM_FAILED) {
-        printf("Unable to create semaphore\n");
-        sem_unlink(semName);
+void createSemaphores() {
+    semView = sem_open(semViewName,O_CREAT,0644,0);
+    semApp = sem_open(semAppName,O_CREAT,0644,0);
+    if(semApp == SEM_FAILED || semView == SEM_FAILED) {
+        printf("Unable to create semaphores\n");
+        sem_unlink(semView);
+        sem_unlink(semApp);
         exit(-1);
     }
 }
 
-void endSemaphore() {
-    sem_close(sem);
-    sem_unlink(semName);
+void endSemaphores() {
+    sem_close(semView);
+    sem_unlink(semView);
+    sem_close(semApp);
+    sem_unlink(semApp);
 }

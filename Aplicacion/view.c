@@ -11,9 +11,7 @@
 #include <unistd.h>
 #include <signal.h>
 
-#define SHMSIZE 1024 //DESPUES VEMOS EL TAMAÑO
-
-#define STDI
+#define SHMSIZE 1024
 
 const char * shmName = "viewAndAppSharedMemory";
 const char * semName = "viewAndAppSemaphore";
@@ -37,12 +35,11 @@ int main() {
     char buffer[100];
     while (appIsRunning) {
         sem_wait(sem);
-        /*Hay que leer el buffer, por ahora supongo que me lo mandan armado y cuando no
-        hay nada mas hay un EOF, despues sigo buscando como es esto */
+
         while(*(char*)shmAddr != EOF) {
             if(*(char*) shmAddr == '\0')
-                printf("\n");
-            printf("%c", *(char*)shmAddr);
+                putchar("\n");
+            putchar(*(char*)shmAddr);
             shmAddr++;
         }
         sem_post(sem);

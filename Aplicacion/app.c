@@ -136,7 +136,7 @@ void setUpSharedMemory() {
 }
 
 void createSemaphore() {
-    sem = sem_open("ViewAndAppSemaphore",O_CREAT,0644,1);
+    sem = sem_open(semName,O_CREAT,0644,1);
     if(sem == SEM_FAILED) {
         printf("Unable to create semaphore\n");
         sem_unlink(semName);

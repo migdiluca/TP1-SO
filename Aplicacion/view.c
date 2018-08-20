@@ -13,6 +13,12 @@
 
 #define SHMSIZE 1024
 
+pid_t getApplicationPID();
+void endSemaphores();
+void createSemaphores();
+void setUpSharedMemory();
+
+const char * shmName = "sharedMemoryViewAndApp";
 const char * semViewName = "viewSemaphore";
 const char * semAppName = "appSemaphore";
 
@@ -34,7 +40,7 @@ int main() {
     int appIsRunning = 1;
     char buffer[100];
     while (appIsRunning) {
-        sem_wait(sem);
+        sem_wait(semView);
 
         while(*(char*)shmAddr != EOF) {
             if(*(char*) shmAddr == '\0')
@@ -42,14 +48,13 @@ int main() {
             putchar(*(char*)shmAddr);
             shmAddr++;
         }
-        sem_post(sem);
+        sem_post(semApp);
 
         //chequea si el proceso existe, no lo mata
         if(kill(appPID, 0) == -1)
             appIsRunning = 0;
     }
-    shm_unlink(semName);
-    endSemaphore();
+    endSemaphores();
     return 0;
 }
 
@@ -82,15 +87,15 @@ void createSemaphores() {
     semApp = sem_open(semAppName,O_CREAT,0644,0);
     if(semApp == SEM_FAILED || semView == SEM_FAILED) {
         printf("Unable to create semaphores\n");
-        sem_unlink(semView);
-        sem_unlink(semApp);
+        sem_unlink(semViewName);
+        sem_unlink(semAppName);
         exit(-1);
     }
 }
 
 void endSemaphores() {
     sem_close(semView);
-    sem_unlink(semView);
+    sem_unlink(semViewName);
     sem_close(semApp);
-    sem_unlink(semApp);
+    sem_unlink(semAppName);
 }

@@ -38,7 +38,7 @@ int main() {
 
         while(*(char*)shmAddr != EOF) {
             if(*(char*) shmAddr == '\0')
-                putchar("\n");
+                putchar('\n');
             putchar(*(char*)shmAddr);
             shmAddr++;
         }

@@ -25,51 +25,57 @@ const char * semAppName = "appSemaphore";
 sem_t * semView;
 sem_t * semApp;
 int shm_fd;
-void * shmAddr;
+char * shmAddr;
 
 void endSemaphores();
 pid_t getApplicationPID();
 void setUpSharedMemory();
 void createSemaphores();
 
-int main() {
+int main(int argc, const char * argv[]) {
+    char aux[8];
+    read(STDIN_FILENO, aux, 8);
+    printf("%s\n", aux);
+    
     createSemaphores();
     setUpSharedMemory();
-    pid_t appPID = getApplicationPID();
-
+    
+    int appPID = atoi(aux);
+    
+    
     int appIsRunning = 1;
-    char buffer[100];
     while (appIsRunning) {
         sem_wait(semView);
-
-        while(*(char*)shmAddr != EOF) {
-            if(*(char*) shmAddr == '\0')
-                putchar('\n');
-            putchar(*(char*)shmAddr);
-            shmAddr++;
+        int k = 0;
+        while(*(shmAddr+k) != EOF) {
+            putchar(*(shmAddr+k));
+            k++;
         }
         sem_post(semApp);
-
+        
         //chequea si el proceso existe, no lo mata
         if(kill(appPID, 0) == -1)
             appIsRunning = 0;
     }
+    
     endSemaphores();
     return 0;
 }
 
 // REVISAR
 pid_t getApplicationPID() {
-    char * buff;
+    char buff[5];
     int multiplier = 1;
     pid_t appPID = 0;
-
+    
+    
     read(STDIN_FILENO, buff, 1);
     while(*buff != '\0') {
         appPID = (appPID * multiplier) + (*buff - '0');
         multiplier *= 10;
         read(STDIN_FILENO, buff, 1);
     }
+    printf("my pppid %d", appPID);
     return appPID;
 }
 

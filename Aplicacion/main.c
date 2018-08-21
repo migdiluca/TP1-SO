@@ -35,7 +35,7 @@ char * setUpSharedMemory(int size);
 void createSemaphores();
 void endSemaphores();
 
-const char * shmName = "viewAndAppSharedMemory";
+const char * shmName = "sharedMemoryViewAndApp";
 const char * semViewName = "viewSemaphore";
 const char * semAppName = "appSemaphore";
 
@@ -51,7 +51,10 @@ pid_t childs[SLAVES];
 
 int main(int argc, const char * argv[]) {
     int k = 0;
-    printf("%d\n", getpid());
+    
+    char aux[8];
+    sprintf(aux, "%d", getpid());
+    write(STDOUT_FILENO, aux, strlen(aux)+1);
     
     int filesAmount = argc - 1;
     
@@ -60,11 +63,9 @@ int main(int argc, const char * argv[]) {
         return 1;
     }
     
-    //char * buff = malloc(BUFFER_SIZE);
     shmAddr = setUpSharedMemory(BUFFER_SIZE);
-    char * memoryAux = shmAddr;
     
-    //createSemaphores();
+    createSemaphores();
     
     pipeSlaves(fdHash);
     pipeSlaves(fdFiles);
@@ -84,12 +85,13 @@ int main(int argc, const char * argv[]) {
         if (select(fdHash[2*(SLAVES)-1]+1, &readfds, NULL, NULL, NULL) > 0) {
             for (int i = 0; i < SLAVES; i++) {
                 if (FD_ISSET(fdHash[2*i], &readfds)) {
-                    shmAddr += read(fdHash[2*i], shmAddr, BUFFER_SIZE);
-                    dataReaded += (int)*(shmAddr);
-                    *(shmAddr) = '\0';
-                    //sem_post(semView);
-                    //sem_wait(semApp);
-                    //k += bytesReaded;
+                    int bytesReaded = read(fdHash[2*i], shmAddr + k, BUFFER_SIZE);
+                    dataReaded += (int)*(shmAddr+k);
+                    *(shmAddr+k) = '\0';
+                    k += bytesReaded;
+                    *(shmAddr+k) = EOF;
+                    sem_post(semView);
+                    sem_wait(semApp);
                     if (filesTransfered < filesAmount) {
                         write(fdFiles[2*i+1], argv[filesTransfered+1], strlen(argv[filesTransfered+1])+1);
                         filesTransfered++;
@@ -98,13 +100,8 @@ int main(int argc, const char * argv[]) {
             }
         }
     }
-
     killSlaves();
     endSemaphores();
-    for (int i = 0; i < BUFFER_SIZE; i++) {
-        printf("%c", memoryAux[i]);
-    }
-    
     return 0;
 }
 

@@ -36,7 +36,7 @@ int main(int argc, const char * argv[]) {
     //Getting app PID
     char aux[8];
     read(STDIN_FILENO, aux, 8);
-    
+
     createSemaphores();
     setUpSharedMemory();
     
@@ -51,7 +51,7 @@ int main(int argc, const char * argv[]) {
                 putchar(*(shmAddr+k));
             k++;
         }
-        if(*(shmAddr+k) == EOF)
+        if(*(shmAddr+k) == EOF || kill(appPID, 0) == -1)
             appIsRunning = 0;
         k++;
     }

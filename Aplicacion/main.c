@@ -111,9 +111,9 @@ int main(int argc, const char * argv[]) {
     munmap(shmAddr, SHMSIZE);
     shm_unlink(shmName);
     killSlaves();
+    freeArrays();
     sem_post(semView);
     endSemaphores();
-    freeArrays();
     return 0;
 }
 
@@ -126,6 +126,12 @@ void generateSlaves() {
             dup2(fdHash[2*i+1], STDOUT_FILENO);
             close(fdHash[2*i]); // lectura
             close(fdFiles[2*i+1]); // escritura
+            struct stat aux;
+            if(stat ("./Slave", &aux) != 0){
+                sprintf(shmAddr, "./Slave does not exist. Exiting...");
+                sem_post(semView);
+                exit(-1);
+            }
             execv("./Slave", args); // llamada al proceso esclavo
             exit(0);
         } else {

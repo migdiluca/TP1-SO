@@ -1,16 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <errno.h>
 #include <unistd.h>
 #include <sys/stat.h>
-#include <dirent.h>
-#include <assert.h>
 #include <semaphore.h>
-#include <sys/types.h>
-#include <sys/uio.h>
 #include <string.h>
 #include <signal.h>
-#include <sys/select.h>
 #include <sys/mman.h>
 #include <fcntl.h>
 

@@ -19,6 +19,9 @@ int main(){
   int counter;
 
   testFile = fopen("md5Hashes.txt", "r");
+  if(testFile == NULL){
+    printf("%s\n", "ERROR: md5Hashes.txt is corrupted or doesn't exist" );
+  }
   char buff[33];
 
 

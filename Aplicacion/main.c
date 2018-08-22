@@ -85,21 +85,25 @@ int main(int argc, const char * argv[]) {
         if (select(fdHash[2*(SLAVES)-1]+1, &readfds, NULL, NULL, NULL) > 0) {
             for (int i = 0; i < SLAVES; i++) {
                 if (FD_ISSET(fdHash[2*i], &readfds)) {
+                    int a[1];
+                    read(fdHash[2*i], a, 1);
                     int bytesReaded = read(fdHash[2*i], shmAddr + k, BUFFER_SIZE);
-                    dataReaded += (int)*(shmAddr+k);
-                    *(shmAddr+k) = '\0';
+                    dataReaded += *a;
                     k += bytesReaded;
-                    *(shmAddr+k) = EOF;
-                    sem_post(semView);
-                    sem_wait(semApp);
                     if (filesTransfered < filesAmount) {
                         write(fdFiles[2*i+1], argv[filesTransfered+1], strlen(argv[filesTransfered+1])+1);
                         filesTransfered++;
                     }
                 }
             }
+            *(shmAddr+k) = '\0';
+            k++;
+            sem_post(semView);
         }
     }
+    *(shmAddr+k) = EOF;
+    sem_post(semView);
+    printf("EOF");
     killSlaves();
     endSemaphores();
     return 0;
@@ -114,7 +118,7 @@ void generateSlaves() {
             dup2(fdHash[2*i+1], STDOUT_FILENO);
             close(fdHash[2*i]); // lectura
             close(fdFiles[2*i+1]); // escritura
-            execv("./Esclavo", args); // llamada al proceso esclavo
+            execv("./Slave", args); // llamada al proceso esclavo
             exit(0);
         } else {
             childs[i] = pid;

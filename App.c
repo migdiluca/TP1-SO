@@ -39,7 +39,6 @@ pid_t childs[SLAVES];
 
 int main(int argc, const char * argv[]) {
     int k = 0;
-    printf("%d\n", getpid());
     int filesAmount = argc - 1;
     if (filesAmount == 0) {
         printf("ERROR, NO FILES TO PROCESS\n");
@@ -65,18 +64,29 @@ int main(int argc, const char * argv[]) {
         if (select(fdHash[2*(SLAVES)-1]+1, &readfds, NULL, NULL, NULL) > 0) {
             for (int i = 0; i < SLAVES; i++) {
                 if (FD_ISSET(fdHash[2*i], &readfds)) {
-                    int bytesReaded = read(fdHash[2*i], buff + k, BUFFER_SIZE - k);
-                    if (bytesReaded > 0) {
-                        dataReaded += (int)*(buff+k);
-                        *(buff+k) = '\0';
-                        k += bytesReaded;
-                    } if (filesTransfered < filesAmount) {
+                    int a[1];
+                    read(fdHash[2*i], a, 1);
+                    int bytesReaded = read(fdHash[2*i], buff + k, BUFFER_SIZE);
+                    dataReaded += *a;
+                    k += bytesReaded;
+                    if (filesTransfered < filesAmount) {
                         write(fdFiles[2*i+1], argv[filesTransfered+1], strlen(argv[filesTransfered+1])+1);
                         filesTransfered++;
                     }
                 }
             }
+            *(buff+k) = '\0';
+            k++;
         }
+    }
+    *(buff+k) = EOF;
+    int l = 0;
+    while(*(buff+l) != EOF) {
+        if(*(buff+l) == '\0')
+            printf("CERO");
+        else
+            putchar(*(buff+l));
+        l++;
     }
 
     killSlaves();

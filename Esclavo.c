@@ -74,7 +74,7 @@ int main(){
                 free(md5);
             }
             ret[0] = amount;
-            write( STDOUT_FILENO, ret, strlen(ret)+1);
+            write( STDOUT_FILENO, ret, strlen(ret));
             free(ret);
         }
     }

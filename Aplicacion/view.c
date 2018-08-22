@@ -44,15 +44,17 @@ int main(int argc, const char * argv[]) {
     
     
     int appIsRunning = 1;
+    int k = 0;
     while (appIsRunning) {
-        sem_wait(semView);
-        int k = 0;
-        while(*(shmAddr+k) != EOF) {
-            putchar(*(shmAddr+k));
+       sem_wait(semView);
+        while(*(shmAddr+k) != EOF && *(shmAddr+k) != '\0') {
+            if(*(shmAddr+k) != NULL)
+                putchar(*(shmAddr+k));
             k++;
         }
-        sem_post(semApp);
-        
+        if(*(shmAddr+k) == EOF)
+            appIsRunning = 0;
+        k++;
         //chequea si el proceso existe, no lo mata
         if(kill(appPID, 0) == -1)
             appIsRunning = 0;
@@ -60,23 +62,6 @@ int main(int argc, const char * argv[]) {
     
     endSemaphores();
     return 0;
-}
-
-// REVISAR
-pid_t getApplicationPID() {
-    char buff[5];
-    int multiplier = 1;
-    pid_t appPID = 0;
-    
-    
-    read(STDIN_FILENO, buff, 1);
-    while(*buff != '\0') {
-        appPID = (appPID * multiplier) + (*buff - '0');
-        multiplier *= 10;
-        read(STDIN_FILENO, buff, 1);
-    }
-    printf("my pppid %d", appPID);
-    return appPID;
 }
 
 void setUpSharedMemory() {

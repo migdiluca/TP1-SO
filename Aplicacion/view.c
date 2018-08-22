@@ -51,7 +51,9 @@ int main(int argc, const char * argv[]) {
                 putchar(*(shmAddr+k));
             k++;
         }
-        if(*(shmAddr+k) == EOF || kill(appPID, 0) == -1)
+        int semValue;
+        sem_getvalue(semView, &semValue);
+        if(*(shmAddr+k) == EOF || (kill(appPID, 0) == -1 && semValue == 0))
             appIsRunning = 0;
         k++;
     }

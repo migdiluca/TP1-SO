@@ -1,30 +1,3 @@
-//
-//  main.c
-//  Esclavo
-//
-//  Created by Fermin Gomez on 8/13/18.
-//  Copyright © 2018 Fermin Gomez. All rights reserved.
-//
-
-//#include <stdio.h>
-//#include <stdlib.h>
-//#include <sys/types.h>
-//#include <sys/uio.h>
-//#include <unistd.h>
-//#define BUFFER_SIZE 20
-//char buff[BUFFER_SIZE];
-//
-//
-//int main(int argc, const char * argv[]) {
-//    while (1) {
-//        if (read(STDIN_FILENO, buff, BUFFER_SIZE) > 0) {
-//            write(STDOUT_FILENO, buff, BUFFER_SIZE);
-//        }
-//    }
-//    return 0;
-//}
-
-//slave.c
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/select.h>

@@ -1,10 +1,3 @@
-//
-//  main.c
-//  Aplicacion
-//
-//  Created by Fermin Gomez on 8/13/18.
-//  Copyright © 2018 Fermin Gomez. All rights reserved.
-//
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -71,6 +64,7 @@ int main(int argc, const char * argv[]) {
     numOfSlaves = getNumberOfCores();
     initializeArrays();
     shmAddr = setUpSharedMemory(SHMSIZE);
+
     createSemaphores();
     
     pipeSlaves(fdHash);

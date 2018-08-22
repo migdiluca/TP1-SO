@@ -10,6 +10,7 @@
 #include <signal.h>
 #include <sys/mman.h>
 #include <fcntl.h>
+#include <sys/select.h>
 
 #define DEFAULTSLAVES 8
 #define SHMSIZE 2000

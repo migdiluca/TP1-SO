@@ -49,31 +49,38 @@ pid_t *childs;
 
 int main(int argc, const char * argv[]) {
     int k = 0;
-    
+    int chunk = 0;
+    FILE* outFile;
     char aux[8];
     sprintf(aux, "%d", getpid());
     write(STDOUT_FILENO, aux, strlen(aux)+1);
-    
+
     int filesAmount = argc - 1;
-    
+
     if (filesAmount == 0) {
         printf("ERROR, NO FILES TO PROCESS\n");
         return 1;
     }
-    
+    outFile = fopen("md5Hashes","w");
+      if(outFile==NULL) {
+      perror("File couldn't be created");
+      exit(1);
+    }
+
+
     numOfSlaves = getNumberOfCores();
     initializeArrays();
     shmAddr = setUpSharedMemory(SHMSIZE);
 
     createSemaphores();
-    
+
     pipeSlaves(fdHash);
     pipeSlaves(fdFiles);
-    
+
     int filesTransfered = initialDistribution(argv, argc);
-    
+
     generateSlaves();
-    
+
     int dataReaded = 0;
     fd_set readfds;
     while (dataReaded < filesAmount) {
@@ -95,8 +102,10 @@ int main(int argc, const char * argv[]) {
                     }
                 }
             }
+            fprintf(outFile, "%s", shmAddr+chunk);
             *(shmAddr+k) = '\0';
             k++;
+            chunk = k;
             sem_post(semView);
         }
     }

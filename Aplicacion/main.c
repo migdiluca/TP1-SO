@@ -21,8 +21,8 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 
-#define SLAVES 3
-#define BUFFER_SIZE 2000
+#define DEFAULTSLAVES 8
+#define SHMSIZE 2000
 
 void * mapSharedMemory(int id);
 int allocateSharedMemory(int n);
@@ -34,6 +34,9 @@ void writeDataToBuffer(int fd, const void * buffer);
 char * setUpSharedMemory(int size);
 void createSemaphores();
 void endSemaphores();
+int getNumberOfCores();
+void initializeArrays();
+void freeArrays();
 
 const char * shmName = "sharedMemoryViewAndApp";
 const char * semViewName = "viewSemaphore";
@@ -42,12 +45,14 @@ const char * semAppName = "appSemaphore";
 sem_t * semView;
 sem_t * semApp;
 
-int fdHash[2*SLAVES]; // hash
-int fdFiles[2*SLAVES]; // archivos
+int numOfSlaves = DEFAULTSLAVES;
+
+int *fdHash; // hash
+int *fdFiles; // archivos
 
 char * shmAddr; // sheared memory adress (buffer)
 
-pid_t childs[SLAVES];
+pid_t *childs;
 
 int main(int argc, const char * argv[]) {
     int k = 0;
@@ -63,8 +68,9 @@ int main(int argc, const char * argv[]) {
         return 1;
     }
     
-    shmAddr = setUpSharedMemory(BUFFER_SIZE);
-    
+    numOfSlaves = getNumberOfCores();
+    initializeArrays();
+    shmAddr = setUpSharedMemory(SHMSIZE);
     createSemaphores();
     
     pipeSlaves(fdHash);
@@ -76,19 +82,18 @@ int main(int argc, const char * argv[]) {
     
     int dataReaded = 0;
     fd_set readfds;
-    
     while (dataReaded < filesAmount) {
         FD_ZERO(&readfds);
-        for (int i = 0; i < SLAVES; i++) {
+        for (int i = 0; i < numOfSlaves; i++) {
             FD_SET(fdHash[2*i], &readfds);
         }
-        if (select(fdHash[2*(SLAVES)-1]+1, &readfds, NULL, NULL, NULL) > 0) {
-            for (int i = 0; i < SLAVES; i++) {
+        if (select(fdHash[2*(numOfSlaves)-1]+1, &readfds, NULL, NULL, NULL) > 0) {
+            for (int i = 0; i < numOfSlaves; i++) {
                 if (FD_ISSET(fdHash[2*i], &readfds)) {
-                    int a[1];
-                    read(fdHash[2*i], a, 1);
-                    int bytesReaded = read(fdHash[2*i], shmAddr + k, BUFFER_SIZE);
-                    dataReaded += *a;
+                    int filesInThisPipe[1];
+                    read(fdHash[2*i], filesInThisPipe, 1);
+                    int bytesReaded = read(fdHash[2*i], shmAddr + k, SHMSIZE);
+                    dataReaded += *filesInThisPipe;
                     k += bytesReaded;
                     if (filesTransfered < filesAmount) {
                         write(fdFiles[2*i+1], argv[filesTransfered+1], strlen(argv[filesTransfered+1])+1);
@@ -101,17 +106,20 @@ int main(int argc, const char * argv[]) {
             sem_post(semView);
         }
     }
+
     *(shmAddr+k) = EOF;
-    sem_post(semView);
-    printf("EOF");
+    munmap(shmAddr, SHMSIZE);
+    shm_unlink(shmName);
     killSlaves();
+    sem_post(semView);
     endSemaphores();
+    freeArrays();
     return 0;
 }
 
 void generateSlaves() {
     char * args[]= {NULL};
-    for (int i = 0; i < SLAVES; i++) {
+    for (int i = 0; i < numOfSlaves; i++) {
         pid_t pid = fork();
         if (pid == 0) {
             dup2(fdFiles[2*i], STDIN_FILENO);
@@ -128,14 +136,14 @@ void generateSlaves() {
     }
 }
 
-void pipeSlaves(int fd[2*SLAVES]) {
-    for (int i = 0; i < SLAVES; i++) {
+void pipeSlaves(int fd[2*numOfSlaves]) {
+    for (int i = 0; i < numOfSlaves; i++) {
         pipe(&fd[2*i]);
     }
 }
 
 void killSlaves() {
-    for (int i = 0; i < SLAVES; i++) {
+    for (int i = 0; i < numOfSlaves; i++) {
         kill(childs[i], SIGKILL);
     }
 }
@@ -143,14 +151,14 @@ void killSlaves() {
 int initialDistribution(const char * argv[], int dim) {
     int i, j;
     // le damos un tranajo a cada esclavo
-    for (i = 1, j = 0; j < SLAVES && i < dim; i++, j++) {
+    for (i = 1, j = 0; j < numOfSlaves && i < dim; i++, j++) {
         write(fdFiles[2*j+1], argv[i], strlen(argv[i])+1);
     }
     int distribution = (dim-1)*(0.4); // completamos hasta el 40%
-    j = j % SLAVES;
+    j = j % numOfSlaves;
     for ( ; i < distribution + 1; i++) {
         write(fdFiles[2*j+1], argv[i], strlen(argv[i])+1);
-        j = (j + 1) % SLAVES;
+        j = (j + 1) % numOfSlaves;
     }
     return --i;
 }
@@ -182,4 +190,23 @@ void endSemaphores() {
     sem_unlink(semViewName);
     sem_close(semApp);
     sem_unlink(semAppName);
+}
+
+int getNumberOfCores() {
+#if defined(__linux__)
+    return sysconf(_SC_NPROCESSORS_ONLN);
+#endif
+    return DEFAULTSLAVES;
+}
+
+void initializeArrays() {
+    fdHash = malloc(sizeof(int) * 2 * numOfSlaves);
+    fdFiles = malloc(sizeof(int) * 2 * numOfSlaves);
+    childs = malloc(sizeof(pid_t) * numOfSlaves);
+}
+
+void freeArrays() {
+    free(fdHash);
+    free(fdFiles);
+    free(childs);
 }

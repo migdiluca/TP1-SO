@@ -11,7 +11,7 @@
 #include <unistd.h>
 #include <signal.h>
 
-#define SHMSIZE 1024
+#define SHMSIZE 2000
 
 pid_t getApplicationPID();
 void endSemaphores();
@@ -33,33 +33,31 @@ void setUpSharedMemory();
 void createSemaphores();
 
 int main(int argc, const char * argv[]) {
+    //Getting app PID
     char aux[8];
     read(STDIN_FILENO, aux, 8);
-    printf("%s\n", aux);
     
     createSemaphores();
     setUpSharedMemory();
     
     int appPID = atoi(aux);
     
-    
     int appIsRunning = 1;
     int k = 0;
     while (appIsRunning) {
        sem_wait(semView);
         while(*(shmAddr+k) != EOF && *(shmAddr+k) != '\0') {
-            if(*(shmAddr+k) != NULL)
+            if(*(shmAddr+k) != '\0')
                 putchar(*(shmAddr+k));
             k++;
         }
         if(*(shmAddr+k) == EOF)
             appIsRunning = 0;
         k++;
-        //chequea si el proceso existe, no lo mata
-        if(kill(appPID, 0) == -1)
-            appIsRunning = 0;
     }
-    
+
+    munmap(shmAddr, SHMSIZE);
+    shm_unlink(shmName);
     endSemaphores();
     return 0;
 }

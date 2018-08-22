@@ -9,20 +9,7 @@
 #include <unistd.h>
 #include <signal.h>
 
-#define SHMSIZE 2000
-
-
 const char * shmName = "sharedMemoryViewAndApp";
-const char * semViewName = "viewSemaphore";
-
-sem_t * semView;
-int shm_fd;
-char * shmAddr;
-
-void endSemaphore();
-void setUpSharedMemory();
-void createSemaphore();
-
-
+const char * semName = "semaphore";
 
 #endif

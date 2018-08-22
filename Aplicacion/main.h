@@ -13,33 +13,24 @@
 #include <sys/select.h>
 
 #define DEFAULTSLAVES 8
-#define SHMSIZE 2000
 
-void * mapSharedMemory(int id);
-int allocateSharedMemory(int n);
 void pipeSlaves(int * fd);
 void generateSlaves();
 int initialDistribution(const char * argv[], int dim);
 void killSlaves();
-void writeDataToBuffer(int fd, const void * buffer);
-char * setUpSharedMemory(int size);
-void createSemaphore();
-void endSemaphore();
 int getNumberOfCores();
 void initializeArrays();
 void freeArrays();
 
 const char * shmName = "sharedMemoryViewAndApp";
-const char * semViewName = "viewSemaphore";
-
-sem_t * semView;
+const char * semName = "semaphore";
 
 int numOfSlaves;
+int * fdHash;
+int * fdFiles;
 
-int * fdHash; // hash
-int * fdFiles; // archivos
-
-char * shmAddr; // shared memory address (buffer)
+sem_t * sem;
+char * shmAddr;
 
 pid_t * childs;
 

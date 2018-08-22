@@ -1,38 +1,38 @@
 #include "main.h"
-
+#include "shmSem.h"
 int main(int argc, const char * argv[]) {
-
+    sem = createSemaphore(semName);
+    shmAddr = setUpSharedMemory(SHMSIZE, shmName);
     char aux[8];
     sprintf(aux, "%d", getpid());
     write(STDOUT_FILENO, aux, strlen(aux)+1);
     int filesAmount = argc - 1;
     if (filesAmount == 0) {
         printf("ERROR, NO FILES TO PROCESS\n");
+        sem_post(sem);
         return 1;
     }
-
+    
     FILE* outFile;
     outFile = fopen("md5Hashes.txt","w");
-      if(outFile==NULL) {
-      perror("File couldn't be created");
-      exit(1);
+    if(outFile==NULL) {
+        perror("File couldn't be created");
+        sem_post(sem);
+        exit(1);
     }
-
+    
     numOfSlaves = getNumberOfCores();
     initializeArrays();
-    shmAddr = setUpSharedMemory(SHMSIZE);
-
-    createSemaphore();
-
+    
     pipeSlaves(fdHash);
     pipeSlaves(fdFiles);
-
+    
     int filesTransfered = initialDistribution(argv, argc);
-
+    
     generateSlaves();
-
+    
     fd_set readfds;
-
+    
     int dataReaded = 0;
     int k = 0;
     int chunk = 0;
@@ -61,18 +61,18 @@ int main(int argc, const char * argv[]) {
             *(shmAddr+k) = '\0';
             k++;
             chunk = k;
-            sem_post(semView);
+            sem_post(sem);
         }
     }
-
+    
     *(shmAddr+k) = EOF;
     munmap(shmAddr, SHMSIZE);
     shm_unlink(shmName);
     killSlaves();
     freeArrays();
     fclose(outFile);
-    sem_post(semView);
-    endSemaphore();
+    sem_post(sem);
+    endSemaphore(sem, semName);
     return 0;
 }
 
@@ -82,21 +82,21 @@ void generateSlaves() {
         if (pid == 0) {
             dup2(fdFiles[2*i], STDIN_FILENO);
             dup2(fdHash[2*i+1], STDOUT_FILENO);
-            close(fdHash[2*i]); // lectura
-            close(fdFiles[2*i+1]); // escritura
+            close(fdHash[2*i]);
+            close(fdFiles[2*i+1]);
             struct stat aux;
             if(stat ("./Slave", &aux) != 0){
                 sprintf(shmAddr, "./Slave does not exist. Exiting...\n ");
-                sem_post(semView);
+                sem_post(sem);
                 exit(-1);
             }
             char * args[]= {NULL};
-            execv("./Slave", args); // llamada al proceso esclavo
+            execv("./Slave", args);
             exit(0);
         } else {
             childs[i] = pid;
-            close(fdFiles[2*i]); // lectura
-            close(fdHash[2*i+1]); // escritura
+            close(fdFiles[2*i]);
+            close(fdHash[2*i+1]);
         }
     }
 }
@@ -115,42 +115,16 @@ void killSlaves() {
 
 int initialDistribution(const char * argv[], int dim) {
     int i, j;
-    // le damos un tranajo a cada esclavo
     for (i = 1, j = 0; j < numOfSlaves && i < dim; i++, j++) {
         write(fdFiles[2*j+1], argv[i], strlen(argv[i])+1);
     }
-    int distribution = (dim-1)*(0.4); // completamos hasta el 40%
+    int distribution = (dim-1)*(0.4);
     j = j % numOfSlaves;
     for ( ; i < distribution + 1; i++) {
         write(fdFiles[2*j+1], argv[i], strlen(argv[i])+1);
         j = (j + 1) % numOfSlaves;
     }
     return --i;
-}
-
-char * setUpSharedMemory(int size) {
-    int shm_fd = shm_open(shmName, O_CREAT | O_RDWR, 0666);
-    char * shmAddr;
-    if(shm_fd == -1 || ftruncate(shm_fd, size) == -1) {//trunca el archivo al tamaño SHMSIZE
-        printf("Can't initialize shared memory");
-        exit(-1);
-    }
-    shmAddr = mmap(0, size, PROT_WRITE, MAP_SHARED, shm_fd, 0);
-    return shmAddr;
-}
-
-void createSemaphore() {
-    semView = sem_open(semViewName,O_CREAT,0644,0);
-    if(semView == SEM_FAILED) {
-        printf("Unable to create semaphores\n");
-        sem_unlink(semViewName);
-        exit(-1);
-    }
-}
-
-void endSemaphore() {
-    sem_close(semView);
-    sem_unlink(semViewName);
 }
 
 int getNumberOfCores() {

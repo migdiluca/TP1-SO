@@ -1,55 +1,33 @@
 #include "view.h"
-
+#include "shmSem.h"
 int main(int argc, const char * argv[]) {
-    //Getting app PID
     char aux[8];
     read(STDIN_FILENO, aux, 8);
     int appPID = atoi(aux);
-
-    createSemaphore();
-    setUpSharedMemory();
-
+    sem_t * sem = createSemaphore(semName);
+    char * shmAddr = setUpSharedMemory(SHMSIZE, shmName);
     int appIsRunning = 1;
     int k = 0;
+    if (kill(appPID, 0) == -1) {
+        return 1;
+    }
     while (appIsRunning) {
-       sem_wait(semView);
+        sem_wait(sem);
         while(*(shmAddr+k) != EOF && *(shmAddr+k) != '\0') {
             if(*(shmAddr+k) != '\0')
                 putchar(*(shmAddr+k));
             k++;
         }
         int semValue;
-        sem_getvalue(semView, &semValue);
+        sem_getvalue(sem, &semValue);
         if(*(shmAddr+k) == EOF || (kill(appPID, 0) == -1 && semValue == 0))
             appIsRunning = 0;
         k++;
     }
-
+    
     munmap(shmAddr, SHMSIZE);
     shm_unlink(shmName);
-    endSemaphore();
+    endSemaphore(sem, semName);
     return 0;
 }
 
-void setUpSharedMemory() {
-    shm_fd = shm_open(shmName, O_CREAT | O_RDONLY, 0666);
-    if(shm_fd == -1) {
-        printf("Can't initialize shared memory");
-        exit(-1);
-    }
-    shmAddr = mmap(0, SHMSIZE, PROT_READ, MAP_SHARED, shm_fd, 0);
-}
-
-void createSemaphore() {
-    semView = sem_open(semViewName,O_CREAT,0644,0);
-    if(semView == SEM_FAILED) {
-        printf("Unable to create semaphores\n");
-        sem_unlink(semViewName);
-        exit(-1);
-    }
-}
-
-void endSemaphore() {
-    sem_close(semView);
-    sem_unlink(semViewName);
-}

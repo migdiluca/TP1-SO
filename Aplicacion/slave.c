@@ -1,19 +1,9 @@
-#include <unistd.h>
-#include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
-#include <stdio.h>
-
-#define MD5_LENGTH 32
-#define BUFFER_LENGTH 1024
-char buffer[BUFFER_LENGTH];
-
-int nextInBuffer(char * src, char * ans);
+#include "slave.h"
 
 int main(){
-    
+
     char * md5 = NULL; //Stores the hash
-    
+
     while(1) {
         int bytesRead = read(STDIN_FILENO, buffer, BUFFER_LENGTH);
         if (bytesRead > 0) {
@@ -59,4 +49,3 @@ int nextInBuffer(char * src, char * ans) {
     *(ans+i) = '\0';
     return ++i;
 }
-

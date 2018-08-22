@@ -13,35 +13,27 @@
 
 #define SHMSIZE 2000
 
-pid_t getApplicationPID();
-void endSemaphores();
-void createSemaphores();
-void setUpSharedMemory();
 
 const char * shmName = "sharedMemoryViewAndApp";
 const char * semViewName = "viewSemaphore";
-const char * semAppName = "appSemaphore";
 
 sem_t * semView;
-sem_t * semApp;
 int shm_fd;
 char * shmAddr;
 
-void endSemaphores();
-pid_t getApplicationPID();
+void endSemaphore();
 void setUpSharedMemory();
-void createSemaphores();
+void createSemaphore();
 
 int main(int argc, const char * argv[]) {
     //Getting app PID
     char aux[8];
     read(STDIN_FILENO, aux, 8);
-
-    createSemaphores();
-    setUpSharedMemory();
-    
     int appPID = atoi(aux);
-    
+
+    createSemaphore();
+    setUpSharedMemory();
+
     int appIsRunning = 1;
     int k = 0;
     while (appIsRunning) {
@@ -60,7 +52,7 @@ int main(int argc, const char * argv[]) {
 
     munmap(shmAddr, SHMSIZE);
     shm_unlink(shmName);
-    endSemaphores();
+    endSemaphore();
     return 0;
 }
 
@@ -73,20 +65,16 @@ void setUpSharedMemory() {
     shmAddr = mmap(0, SHMSIZE, PROT_READ, MAP_SHARED, shm_fd, 0);
 }
 
-void createSemaphores() {
+void createSemaphore() {
     semView = sem_open(semViewName,O_CREAT,0644,0);
-    semApp = sem_open(semAppName,O_CREAT,0644,0);
-    if(semApp == SEM_FAILED || semView == SEM_FAILED) {
+    if(semView == SEM_FAILED) {
         printf("Unable to create semaphores\n");
         sem_unlink(semViewName);
-        sem_unlink(semAppName);
         exit(-1);
     }
 }
 
-void endSemaphores() {
+void endSemaphore() {
     sem_close(semView);
     sem_unlink(semViewName);
-    sem_close(semApp);
-    sem_unlink(semAppName);
 }

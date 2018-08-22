@@ -25,54 +25,49 @@ int initialDistribution(const char * argv[], int dim);
 void killSlaves();
 void writeDataToBuffer(int fd, const void * buffer);
 char * setUpSharedMemory(int size);
-void createSemaphores();
-void endSemaphores();
+void createSemaphore();
+void endSemaphore();
 int getNumberOfCores();
 void initializeArrays();
 void freeArrays();
 
 const char * shmName = "sharedMemoryViewAndApp";
 const char * semViewName = "viewSemaphore";
-const char * semAppName = "appSemaphore";
 
 sem_t * semView;
-sem_t * semApp;
 
-int numOfSlaves = DEFAULTSLAVES;
+int numOfSlaves;
 
-int *fdHash; // hash
-int *fdFiles; // archivos
+int * fdHash; // hash
+int * fdFiles; // archivos
 
-char * shmAddr; // sheared memory adress (buffer)
+char * shmAddr; // shared memory address (buffer)
 
-pid_t *childs;
+pid_t * childs;
 
 int main(int argc, const char * argv[]) {
-    int k = 0;
-    int chunk = 0;
-    FILE* outFile;
+
     char aux[8];
     sprintf(aux, "%d", getpid());
     write(STDOUT_FILENO, aux, strlen(aux)+1);
-
     int filesAmount = argc - 1;
-
     if (filesAmount == 0) {
         printf("ERROR, NO FILES TO PROCESS\n");
         return 1;
     }
-    outFile = fopen("md5Hashes","w");
+
+    FILE* outFile;
+    outFile = fopen("md5Hashes.txt","w");
       if(outFile==NULL) {
       perror("File couldn't be created");
       exit(1);
     }
 
-
     numOfSlaves = getNumberOfCores();
     initializeArrays();
     shmAddr = setUpSharedMemory(SHMSIZE);
 
-    createSemaphores();
+    createSemaphore();
 
     pipeSlaves(fdHash);
     pipeSlaves(fdFiles);
@@ -81,16 +76,21 @@ int main(int argc, const char * argv[]) {
 
     generateSlaves();
 
-    int dataReaded = 0;
     fd_set readfds;
+
+    int dataReaded = 0;
+    int k = 0;
+    int chunk = 0;
     while (dataReaded < filesAmount) {
         FD_ZERO(&readfds);
         for (int i = 0; i < numOfSlaves; i++) {
             FD_SET(fdHash[2*i], &readfds);
         }
-        if (select(fdHash[2*(numOfSlaves)-1]+1, &readfds, NULL, NULL, NULL) > 0) {
-            for (int i = 0; i < numOfSlaves; i++) {
+        int numPending = select(fdHash[2*(numOfSlaves)-1]+1, &readfds, NULL, NULL, NULL);
+        if ( numPending > 0) {
+            for (int i = 0; i < numOfSlaves && numPending > 0; i++) {
                 if (FD_ISSET(fdHash[2*i], &readfds)) {
+                    numPending--;
                     int filesInThisPipe[1];
                     read(fdHash[2*i], filesInThisPipe, 1);
                     int bytesReaded = read(fdHash[2*i], shmAddr + k, SHMSIZE);
@@ -115,13 +115,13 @@ int main(int argc, const char * argv[]) {
     shm_unlink(shmName);
     killSlaves();
     freeArrays();
+    fclose(outFile);
     sem_post(semView);
-    endSemaphores();
+    endSemaphore();
     return 0;
 }
 
 void generateSlaves() {
-    char * args[]= {NULL};
     for (int i = 0; i < numOfSlaves; i++) {
         pid_t pid = fork();
         if (pid == 0) {
@@ -131,10 +131,11 @@ void generateSlaves() {
             close(fdFiles[2*i+1]); // escritura
             struct stat aux;
             if(stat ("./Slave", &aux) != 0){
-                sprintf(shmAddr, "./Slave does not exist. Exiting...");
+                sprintf(shmAddr, "./Slave does not exist. Exiting...\n ");
                 sem_post(semView);
                 exit(-1);
             }
+            char * args[]= {NULL};
             execv("./Slave", args); // llamada al proceso esclavo
             exit(0);
         } else {
@@ -183,22 +184,18 @@ char * setUpSharedMemory(int size) {
     return shmAddr;
 }
 
-void createSemaphores() {
+void createSemaphore() {
     semView = sem_open(semViewName,O_CREAT,0644,0);
-    semApp = sem_open(semAppName,O_CREAT,0644,0);
-    if(semApp == SEM_FAILED || semView == SEM_FAILED) {
+    if(semView == SEM_FAILED) {
         printf("Unable to create semaphores\n");
         sem_unlink(semViewName);
-        sem_unlink(semAppName);
         exit(-1);
     }
 }
 
-void endSemaphores() {
+void endSemaphore() {
     sem_close(semView);
     sem_unlink(semViewName);
-    sem_close(semApp);
-    sem_unlink(semAppName);
 }
 
 int getNumberOfCores() {

@@ -36,7 +36,7 @@ int main(){
                 md5 = malloc(35);
                 FILE * file = popen(aux,"r");
                 int j,ch;
-                for(j = 0; j < MD5_LENGTH && isxdigit(ch = fgetc(file));j++){   //Taken from Stack Overflow
+                for(j = 0; j < MD5_LENGTH && isxdigit(ch = fgetc(file));j++){
                     md5[j] = ch;
                 }
                 md5[32] = '>';

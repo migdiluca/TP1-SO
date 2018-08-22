@@ -12,6 +12,7 @@ int main(){
   char reader[PATH_LENGTH];
   int i,j=0;
   char c;
+  int textFile = 0;
 
   char aux[8+PATH_LENGTH];
 
@@ -34,18 +35,24 @@ int main(){
               }
               break;
       case '>' :
+                  textFile = 0;
                   if(!md5){
                     aux[counter + 7] = '\0';
-                    printf("Calculando %s\n", aux);
-                    file = popen(aux, "r");
-                    int ch;
-                    for(j = 0; j < MD5_LENGTH && isxdigit(ch = fgetc(file));j++){
-                      buff[j] = ch;
+                    if(strcmp(aux, "md5sum ./md5Hashes.txt") == 0){
+                      textFile = 1;
+                      printf("%s\n", "El archivo de texto sera ignorado");
+                    }else{
+                      printf("Calculando %s\n", aux);
+                      file = popen(aux, "r");
+                      int ch;
+                      for(j = 0; j < MD5_LENGTH && isxdigit(ch = fgetc(file));j++){
+                        buff[j] = ch;
+                      }
+                      buff [j] = '\0';
+                      printf("El md5 es:%s\n", buff);
+                      pclose(file);
                     }
-                    buff [j] = '\0';
                     j=0;
-                    printf("El md5 es:%s\n", buff);
-                    pclose(file);
                     md5 = 1;
                   }else{
                     printf("%s\n", "Coinciden");
@@ -57,11 +64,12 @@ int main(){
       case '\n':  break;
       case ':' :  break;
       default :
+              if(textFile){break;}
               if(!md5){
                 aux[7 + counter] = c;
                 counter++;
               }else{
-                // printf("%c - %c\n",buff[j], c );
+                printf("%c - %c\n",buff[j], c );
                 if(buff[j++] != c){
                   printf("Error con el calculo de: %s\n", aux);
                   return 1;

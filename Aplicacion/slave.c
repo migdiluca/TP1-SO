@@ -54,11 +54,15 @@ int nextInBuffer(char * src, char * ans) {
     int k = 0;
     int i = 0;
     int j = lastBarPosition(src);
+    if(j == 0) {
+        *(ans) = '"';
+        k++;
+    }
     while (*(src+i) != '\0') {
         *(ans+k) = *(src+i);
         i++;
         k++;
-        if(i -1 == j) {
+        if(i -1 == j && j!= 0) {
             *(ans+k) = '"';
             k++;
         }

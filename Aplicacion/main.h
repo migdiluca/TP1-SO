@@ -21,6 +21,8 @@ void killSlaves();
 int getNumberOfCores();
 void initializeArrays();
 void freeArrays();
+int isAFile(const char *path);
+int getFiles(int argc, const char *argv[], char * files[]);
 
 const char * shmName = "sharedMemoryViewAndApp";
 const char * semName = "semaphore";

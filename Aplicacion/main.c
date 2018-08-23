@@ -3,9 +3,11 @@
 int main(int argc, const char * argv[]) {
     sem = createSemaphore(semName);
     shmAddr = setUpSharedMemory(SHMSIZE, shmName);
+
     char aux[8];
     sprintf(aux, "%d", getpid());
     write(STDOUT_FILENO, aux, strlen(aux)+1);
+
     int filesAmount = argc - 1;
     if (filesAmount == 0) {
         printf("ERROR, NO FILES TO PROCESS\n");
@@ -51,8 +53,12 @@ int main(int argc, const char * argv[]) {
                     int bytesReaded = read(fdHash[2*i], shmAddr + k, SHMSIZE);
                     dataReaded += *filesInThisPipe;
                     k += bytesReaded;
-                    if (filesTransfered < filesAmount) {
-                        write(fdFiles[2*i+1], argv[filesTransfered+1], strlen(argv[filesTransfered+1])+1);
+                    while(!isAFile(argv[filesTransfered+1]) && filesTransfered < filesAmount) {
+                        filesTransfered++;
+                        dataReaded++;
+                    }
+                    if(filesTransfered < filesAmount) {
+                        write(fdFiles[2 * i + 1], argv[filesTransfered + 1], strlen(argv[filesTransfered + 1]) + 1);
                         filesTransfered++;
                     }
                 }
@@ -64,7 +70,7 @@ int main(int argc, const char * argv[]) {
             sem_post(sem);
         }
     }
-    
+
     *(shmAddr+k) = EOF;
     munmap(shmAddr, SHMSIZE);
     shm_unlink(shmName);
@@ -113,18 +119,35 @@ void killSlaves() {
     }
 }
 
+int isAFile(const char *path) {
+    struct stat path_stat;
+    stat(path, &path_stat);
+    return S_ISREG(path_stat.st_mode);
+}
+
 int initialDistribution(const char * argv[], int dim) {
     int i, j;
+    int numberOfFiles = 0;
     for (i = 1, j = 0; j < numOfSlaves && i < dim; i++, j++) {
-        write(fdFiles[2*j+1], argv[i], strlen(argv[i])+1);
+        while(!isAFile(argv[i]) && i < dim)
+            i++;
+        if(i < dim) {
+            write(fdFiles[2 * j + 1], argv[i], strlen(argv[i]) + 1);
+            numberOfFiles++;
+        }
     }
     int distribution = (dim-1)*(0.4);
     j = j % numOfSlaves;
     for ( ; i < distribution + 1; i++) {
-        write(fdFiles[2*j+1], argv[i], strlen(argv[i])+1);
+        while(!isAFile(argv[i]) && i < distribution)
+            i++;
+        if(i < distribution) {
+            write(fdFiles[2 * j + 1], argv[i], strlen(argv[i]) + 1);
+            numberOfFiles++;
+        }
         j = (j + 1) % numOfSlaves;
     }
-    return --i;
+    return numberOfFiles;
 }
 
 int getNumberOfCores() {

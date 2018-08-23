@@ -7,7 +7,7 @@ int main(){
     while(1) {
         int bytesRead = read(STDIN_FILENO, buffer, BUFFER_LENGTH);
         if (bytesRead > 0) {
-            char * ret = malloc(BUFFER_LENGTH);
+            char * ret = calloc(BUFFER_LENGTH, sizeof(char));
             int amount = 0;
             int i = 0;
             while(i < bytesRead) {
@@ -30,7 +30,6 @@ int main(){
                 md5[34] = '\0';
                 strcat(ret+1, md5);
                 pclose(file);
-                //write( STDOUT_FILENO, md5, strlen(md5)+1);
                 free(md5);
                 free(path);
             }
@@ -42,12 +41,29 @@ int main(){
     return 0;
 }
 
-int nextInBuffer(char * src, char * ans) {
-    int i = 0;
-    while (*(src+i) != '\0') {
-        *(ans+i) = *(src+i);
-        i++;
+int lastBarPosition (char * string) {
+    int aux = 0;
+    for(int i = 0; string[i] != '\0'; i++) {
+        if(string[i] == '/')
+            aux = i;
     }
-    *(ans+i) = '\0';
+    return aux;
+}
+
+int nextInBuffer(char * src, char * ans) {
+    int k = 0;
+    int i = 0;
+    int j = lastBarPosition(src);
+    while (*(src+i) != '\0') {
+        *(ans+k) = *(src+i);
+        i++;
+        k++;
+        if(i -1 == j) {
+            *(ans+k) = '"';
+            k++;
+        }
+    }
+    *(ans+k) = '"';
+    *(ans+k+1) = '\0';
     return ++i;
 }

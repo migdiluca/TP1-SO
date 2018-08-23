@@ -14,7 +14,7 @@ int main(int argc, const char * argv[]) {
         sem_post(sem);
         return 1;
     }
-    
+
     FILE* outFile;
     outFile = fopen("md5Hashes.txt","w");
     if(outFile==NULL) {
@@ -22,19 +22,19 @@ int main(int argc, const char * argv[]) {
         sem_post(sem);
         exit(1);
     }
-    
+
     numOfSlaves = getNumberOfCores();
     initializeArrays();
-    
+
     pipeSlaves(fdHash);
     pipeSlaves(fdFiles);
-    
+
     int filesTransfered = initialDistribution(argv, argc);
-    
+
     generateSlaves();
-    
+
     fd_set readfds;
-    
+
     int dataReaded = 0;
     int k = 0;
     int chunk = 0;

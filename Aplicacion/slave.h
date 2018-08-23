@@ -14,6 +14,7 @@
 char buffer[BUFFER_LENGTH];
 
 int nextInBuffer(char * src, char * ans);
+int lastBarPosition (char * string);
 
 
 #endif

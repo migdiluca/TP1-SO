@@ -32,9 +32,11 @@ int main(){
                 pclose(file);
                 //write( STDOUT_FILENO, md5, strlen(md5)+1);
                 free(md5);
+                free(path);
             }
             ret[0] = amount;
             write( STDOUT_FILENO, ret, strlen(ret));
+            free(ret);
         }
     }
     return 0;

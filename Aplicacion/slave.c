@@ -30,7 +30,6 @@ int main(){
                 md5[34] = '\0';
                 strcat(ret+1, md5);
                 pclose(file);
-                //write( STDOUT_FILENO, md5, strlen(md5)+1);
                 free(md5);
                 free(path);
             }
